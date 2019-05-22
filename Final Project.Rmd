@@ -1,0 +1,90 @@
+##Analysis of Suicide Rates
+
+Using the database I have found about suicides internationally with consideration to multiple factors, I want to find out: What are good predictors for suicide rates? Identifying the factors of individuals which contribute to probability of suicide is important to help address the problem on a large scale.  It serves as an indicator about what to look at which may be causing increased likelyhood of suicidal tendencies.
+
+```{r}
+library(dplyr)
+library(readr)
+suicides_db <- read_csv("~/R/Files/suicide.csv") %>%
+  rename(suicides_per_100k='suicides/100k pop', gdp='gdp_for_year ($)', gdp_per_capita='gdp_per_capita ($)')%>%
+  select(country, year, sex, age, suicides_no, population, suicides_per_100k, gdp, gdp_per_capita, generation)
+
+suicides_db
+```
+
+I start by loading this dataset using the read_csv function to use a database I found on Kaggle.  In order to tidy it up, I eliminated unecessary attributes like "HDI" which was mostly Null values and did not provide much for analysis, as well as the "country-year" column which was redundant and unecessary for my analysis.
+
+```{r}
+library(ggplot2)
+suicides_db %>%
+  group_by(year)%>%
+  summarize(total_suicides=sum(suicides_no), total_pop=sum(population))%>%
+  mutate(suicides_per_100k=(total_suicides*100000)/total_pop)%>%
+  ggplot(aes(x=year, y=suicides_per_100k)) +
+    geom_line() +
+    labs(title="Suicide Rates over time",
+         x = "Year",
+         y = "Total Suicides per 100k")
+```
+
+First, I have a basic plot showing the total suicides over time in order to observe where suicide rates peaked. I do this by grouping the database by year, summing the suicide number and the populations and then using those values to get each year's total suicides per 100k people. Then I used a line graph to show the progression of suicide rates over time
+
+```{r}
+
+suicides_db %>%
+  group_by(country, year)%>%
+  summarize(yearly_population=sum(population), yearly_suicides=sum(suicides_no), gdp_per_capita=mean(gdp_per_capita))%>%
+  group_by(country)%>%
+  summarize(average_population=mean(yearly_population), total_suicides=sum(yearly_suicides), average_gdp_percap=mean(gdp_per_capita)) %>%
+  mutate(suicides_per_100k=(total_suicides*100000)/average_population) %>%
+  ggplot(aes(x=average_gdp_percap, y=suicides_per_100k)) +
+    geom_point() +
+    labs(title="Suicide Rates vs GDP",
+         x = "Average GDP Per Capita",
+         y = "Total Suicides per 100k")
+```
+
+I also observed how GDP relates to suicide rates. This was done by first grouping by both country and year in order to get the correct gdp per capita. Then I grouped by country and did the average GDP of that country and found the total suicides per 100k people and graphed that on a scatter plot vs GDP.
+
+```{r}
+library(ggplot2)
+suicides_db %>%
+  group_by(age)%>%
+  summarize(total_suicides=sum(suicides_no), total_pop=sum(population))%>%
+  mutate(suicides_per_100k=(total_suicides*100000)/total_pop)%>%
+  ggplot(aes(x=age, y=suicides_per_100k)) +
+    geom_bar(stat = "identity") +
+    labs(title="Suicide Rates For Different Age Groups",
+         x = "Age",
+         y = "Total Suicides per 100k")
+```
+
+Next, I observed how age relates to suicide rates by reproducing the group by function that I did for suicide rates per year except with age. When graphing it, I used a bar graph to show how each group related to the data.
+
+```{r}
+library(ggplot2)
+suicides_db %>%
+  group_by(sex)%>%
+  summarize(total_suicides=sum(suicides_no), total_pop=sum(population))%>%
+  mutate(suicides_per_100k=(total_suicides*100000)/total_pop)%>%
+  ggplot(aes(x=sex, y=suicides_per_100k)) +
+    geom_bar(stat = "identity") +
+    labs(title="Suicide Rates For Different Age Groups",
+         x = "Sex",
+         y = "Total Suicides per 100k")
+```
+
+Finally, I followed the same procedure as the last step, except with sex instead of age. You can find more information about suicide rates in reation to sex here: https://afsp.org/about-suicide/suicide-statistics/ .
+
+```{r}
+library(broom)
+
+lm(suicides_no~sex+age+gdp_per_capita, data=suicides_db)%>%
+  tidy()
+
+```
+
+From this, I learn that age above 75 is not a good indicator of suicide rates, and therefore the formula would be $y=-5.602+260.9*sexmale-162.7*(age5-14)+67.94*(age25-34)+354.1*(age35-54)+183.1*(age55-74)+.002922*gdp\_per\_capita$. I chose this because for all the predictors except age, pvalue was less than 0.05.
+
+
+
